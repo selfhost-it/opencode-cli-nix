@@ -1,0 +1,149 @@
+# OpenCode - the open source coding agent
+#
+# Built from GitHub source using Bun's compile feature.
+#
+# To update:
+#   1. Change `version`
+#   2. Update `srcHash` (run: nix-prefetch-github anomalyco opencode --rev v<VERSION>)
+#   3. Update `modelsDevHash` (set to "" and build — nix will tell you the correct hash)
+#   4. Update node_modules hashes in `hashes.json` (set to "" and build for each platform)
+#   5. Run `nix build`
+
+{ lib
+, stdenvNoCC
+, fetchFromGitHub
+, fetchurl
+, bun
+, makeBinaryWrapper
+, ripgrep
+, installShellFiles
+}:
+
+let
+  version = "1.3.3";
+
+  src = fetchFromGitHub {
+    owner = "anomalyco";
+    repo = "opencode";
+    rev = "v${version}";
+    hash = "sha256-hHyG1s/aaIDpZOF/ZGd0BgBK/DLHfsLZjbbYcYhbFeQ=";
+  };
+
+  # Snapshot of the models.dev API — embedded into the binary at build time
+  # so opencode knows about available AI models without a runtime fetch.
+  modelsDevApi = fetchurl {
+    url = "https://models.dev/api.json";
+    hash = "sha256-iGxjw7px4N7UC0dwE7rVUASwOJdBRBP5eMR60ReK+LM=";
+  };
+
+  platform = stdenvNoCC.hostPlatform;
+  bunCpu = if platform.isAarch64 then "arm64" else "x64";
+  bunOs = if platform.isLinux then "linux" else "darwin";
+
+  hashes = builtins.fromJSON (builtins.readFile ./hashes.json);
+
+  # Fixed-output derivation: runs `bun install` with network access,
+  # then the output is verified against a known hash.
+  nodeModules = stdenvNoCC.mkDerivation {
+    pname = "opencode-node-modules";
+    inherit version src;
+
+    nativeBuildInputs = [ bun ];
+    dontConfigure = true;
+
+    buildPhase = ''
+      runHook preBuild
+      export HOME=$(mktemp -d)
+      export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
+      bun install \
+        --cpu="${bunCpu}" \
+        --os="${bunOs}" \
+        --filter '!./' \
+        --filter './packages/opencode' \
+        --filter './packages/desktop' \
+        --frozen-lockfile \
+        --ignore-scripts \
+        --no-progress
+      runHook postBuild
+    '';
+
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out
+      find . -type d -name node_modules -exec cp -R --parents {} $out \;
+      runHook postInstall
+    '';
+
+    dontFixup = true;
+    outputHashAlgo = "sha256";
+    outputHashMode = "recursive";
+    outputHash = hashes.nodeModules.${platform.system};
+  };
+
+in
+stdenvNoCC.mkDerivation {
+  pname = "opencode";
+  inherit version src;
+
+  nativeBuildInputs = [
+    bun
+    installShellFiles
+    makeBinaryWrapper
+  ];
+
+  env = {
+    MODELS_DEV_API_JSON = "${modelsDevApi}";
+    OPENCODE_DISABLE_MODELS_FETCH = "true";
+    OPENCODE_VERSION = version;
+    OPENCODE_CHANNEL = "local";
+  };
+
+  configurePhase = ''
+    runHook preConfigure
+    cp -R ${nodeModules}/. .
+    runHook postConfigure
+  '';
+
+  # nixpkgs bun may lag slightly behind the exact version opencode expects;
+  # bypass the strict semver gate (the actual build works fine).
+  postPatch = ''
+    sed -i 's/!semver.satisfies(process.versions.bun, expectedBunVersionRange)/false/' \
+      packages/script/src/index.ts
+  '';
+
+  buildPhase = ''
+    runHook preBuild
+    export HOME=$(mktemp -d)
+    pushd packages/opencode
+    bun --bun ./script/build.ts --single --skip-install --skip-embed-web-ui
+    bun --bun ./script/schema.ts schema.json
+    popd
+    runHook postBuild
+  '';
+
+  installPhase = ''
+    runHook preInstall
+
+    install -Dm755 packages/opencode/dist/opencode-*/bin/opencode $out/bin/opencode
+    install -Dm644 packages/opencode/schema.json $out/share/opencode/schema.json
+
+    wrapProgram $out/bin/opencode \
+      --prefix PATH : ${lib.makeBinPath [ ripgrep ]}
+
+    runHook postInstall
+  '';
+
+  postInstall = lib.optionalString (stdenvNoCC.buildPlatform.canExecute stdenvNoCC.hostPlatform) ''
+    installShellCompletion --cmd opencode \
+      --bash <($out/bin/opencode completion) \
+      --zsh <(SHELL=/bin/zsh $out/bin/opencode completion)
+  '';
+
+  meta = {
+    description = "OpenCode - the open source coding agent";
+    homepage = "https://opencode.ai/";
+    license = lib.licenses.mit;
+    platforms = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
+    mainProgram = "opencode";
+  };
+}
