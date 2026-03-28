@@ -7,7 +7,8 @@
 #   2. Update `srcHash` (run: nix-prefetch-github anomalyco opencode --rev v<VERSION>)
 #   3. Update `modelsDevHash` (set to "" and build — nix will tell you the correct hash)
 #   4. Update node_modules hashes in `hashes.json` (set to "" and build for each platform)
-#   5. Run `nix build`
+#   5. If upstream requires a newer bun, bump `bunVersion` and update `bunHashes`
+#   6. Run `nix build`
 
 { lib
 , stdenvNoCC
@@ -40,6 +41,24 @@ let
   bunCpu = if platform.isAarch64 then "arm64" else "x64";
   bunOs = if platform.isLinux then "linux" else "darwin";
 
+  # Pin bun to a version compatible with OpenCode, regardless of
+  # what the user's nixpkgs provides (avoids "bun too old" errors
+  # when the flake is consumed with `inputs.nixpkgs.follows`).
+  bunVersion = "1.3.11";
+  bunHashes = {
+    "x86_64-linux"  = "sha256-hhG6k1r4hvBabzh0ChUWAybBXl1dB63vlmEwtEk2B+0=";
+    "aarch64-linux"  = "sha256-0TlE2hKlPsx0v2pyC9HQTEVVwDjf5CI2U1anvkdpH98=";
+    "aarch64-darwin" = "sha256-b1o0Z+2crsR5W/eM1HZQfZ+HDH1XuGyUX8szgSZ3L/w=";
+    "x86_64-darwin"  = "sha256-+2c5sIv1RVDtqnyCTNWy3KRbagav70CEQwh6YxBfb40=";
+  };
+  bunPinned = bun.overrideAttrs (old: {
+    version = bunVersion;
+    src = fetchurl {
+      url = "https://github.com/oven-sh/bun/releases/download/bun-v${bunVersion}/bun-${bunOs}-${bunCpu}${lib.optionalString (platform.isDarwin && platform.isx86_64) "-baseline"}.zip";
+      hash = bunHashes.${platform.system};
+    };
+  });
+
   hashes = builtins.fromJSON (builtins.readFile ./hashes.json);
 
   # Fixed-output derivation: runs `bun install` with network access,
@@ -48,7 +67,7 @@ let
     pname = "opencode-node-modules";
     inherit version src;
 
-    nativeBuildInputs = [ bun ];
+    nativeBuildInputs = [ bunPinned ];
     dontConfigure = true;
 
     buildPhase = ''
@@ -86,7 +105,7 @@ stdenvNoCC.mkDerivation {
   inherit version src;
 
   nativeBuildInputs = [
-    bun
+    bunPinned
     installShellFiles
     makeBinaryWrapper
   ];
@@ -102,13 +121,6 @@ stdenvNoCC.mkDerivation {
     runHook preConfigure
     cp -R ${nodeModules}/. .
     runHook postConfigure
-  '';
-
-  # nixpkgs bun may lag slightly behind the exact version opencode expects;
-  # bypass the strict semver gate (the actual build works fine).
-  postPatch = ''
-    sed -i 's/!semver.satisfies(process.versions.bun, expectedBunVersionRange)/false/' \
-      packages/script/src/index.ts
   '';
 
   buildPhase = ''
