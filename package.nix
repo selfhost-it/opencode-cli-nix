@@ -21,20 +21,20 @@
 }:
 
 let
-  version = "1.3.8";
+  version = "1.3.9";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
     repo = "opencode";
     rev = "v${version}";
-    hash = "sha256-DWUJSshl5+twBV099XHC278VMenVEOfGSAWiCVVD7tg=";
+    hash = "sha256-NcF843hRORXktv6PswaiZO4DUeJsTcEm5BYNynRCn4M=";
   };
 
   # Snapshot of the models.dev API — embedded into the binary at build time
   # so opencode knows about available AI models without a runtime fetch.
   modelsDevApi = fetchurl {
     url = "https://models.dev/api.json";
-    hash = "sha256-KGgiNTtXQLPxid4bHShfl6+WuUChquIOVkLy0T4FPo0=";
+    hash = "sha256-mUcUSEBiyaLkZws6DLCC5k+K+lEVe9rMbB4tnsXXpYs=";
   };
 
   platform = stdenvNoCC.hostPlatform;
