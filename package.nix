@@ -34,7 +34,7 @@ let
   # so opencode knows about available AI models without a runtime fetch.
   modelsDevApi = fetchurl {
     url = "https://models.dev/api.json";
-    hash = "sha256-1A9htBqdU8M3Bfus2m0kGrx/KoOQW5ig+5OJmubDha8=";
+    hash = "sha256-Vb0icoquVT2ovq6SaUYxfGsG08ySa3DZiZ9JxNRZepE=";
   };
 
   platform = stdenvNoCC.hostPlatform;
