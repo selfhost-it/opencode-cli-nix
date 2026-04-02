@@ -27,7 +27,7 @@ Update opencode-cli-nix to the latest upstream release.
 3. Update `package.nix`:
    a. Set `version` to the new value (without leading `v`).
    b. Set the source `hash = "";` -> run `nix build . 2>&1` -> find the line containing `got:` and extract the SRI hash (sha256-...=) -> update `hash`.
-   c. Set the `modelsDevApi` `hash = "";` -> run `nix build . 2>&1` -> extract hash from `got:` -> update.
+   c. Refresh `api.json`: curl -s "https://models.dev/api.json" -o api.json
 
 4. Update `hashes.json`:
    a. Set the nodeModules hash for the current platform (e.g. `x86_64-linux`) to `""`.

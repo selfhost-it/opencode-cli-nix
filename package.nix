@@ -5,7 +5,7 @@
 # To update:
 #   1. Change `version`
 #   2. Update `srcHash` (run: nix-prefetch-github anomalyco opencode --rev v<VERSION>)
-#   3. Update `modelsDevHash` (set to "" and build — nix will tell you the correct hash)
+#   3. Refresh `api.json`: curl -s "https://models.dev/api.json" -o api.json
 #   4. Update node_modules hashes in `hashes.json` (set to "" and build for each platform)
 #   5. If upstream requires a newer bun, bump `bunVersion` and update `bunHashes`
 #   6. Run `nix build`
@@ -30,12 +30,10 @@ let
     hash = "sha256-P6Md0WzHK2/oAZ6VbpYnabVJyVcqwuYizoOqbxaf+lU=";
   };
 
-  # Snapshot of the models.dev API — embedded into the binary at build time
-  # so opencode knows about available AI models without a runtime fetch.
-  modelsDevApi = fetchurl {
-    url = "https://models.dev/api.json";
-    hash = "sha256-Vb0icoquVT2ovq6SaUYxfGsG08ySa3DZiZ9JxNRZepE=";
-  };
+  # Snapshot of the models.dev API — vendored in the repo so the build is
+  # fully reproducible and never breaks when upstream changes the file.
+  # Refresh with: curl -s "https://models.dev/api.json" -o api.json
+  modelsDevApi = ./api.json;
 
   platform = stdenvNoCC.hostPlatform;
   bunCpu = if platform.isAarch64 then "arm64" else "x64";
