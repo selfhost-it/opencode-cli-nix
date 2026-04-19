@@ -21,13 +21,13 @@
 }:
 
 let
-  version = "1.4.11";
+  version = "1.14.17";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
     repo = "opencode";
     rev = "v${version}";
-    hash = "sha256-jlxR2BODV8wk0sP4Kkyza7Zr5I+Q003gldCfp2eYOt8=";
+    hash = "sha256-eZa5PbeYakU/KlLuCqTeWRtp5da+2cmKwxTslER+b6E=";
   };
 
   # Snapshot of the models.dev API — vendored in the repo so the build is
@@ -75,10 +75,12 @@ let
       bun install \
         --cpu="${bunCpu}" \
         --os="${bunOs}" \
-        --filter '!./' \
+        --linker=hoisted \
+        --filter './' \
         --filter './packages/opencode' \
         --filter './packages/desktop' \
-        --frozen-lockfile \
+        --filter './packages/app' \
+        --filter './packages/shared' \
         --ignore-scripts \
         --no-progress
       runHook postBuild
