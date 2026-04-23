@@ -21,13 +21,13 @@
 }:
 
 let
-  version = "1.14.20";
+  version = "1.14.21";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
     repo = "opencode";
     rev = "v${version}";
-    hash = "sha256-9nxxvCkeTW3MasXaOhWaQqxqJeq9Q1+5TGULITjhV2Q=";
+    hash = "sha256-de+71G/3Ha8vL9tABo8x6NRm4Md21+z7/nqGa4gDbrU=";
   };
 
   # Snapshot of the models.dev API — vendored in the repo so the build is
@@ -42,12 +42,12 @@ let
   # Pin bun to a version compatible with OpenCode, regardless of
   # what the user's nixpkgs provides (avoids "bun too old" errors
   # when the flake is consumed with `inputs.nixpkgs.follows`).
-  bunVersion = "1.3.11";
+  bunVersion = "1.3.13";
   bunHashes = {
-    "x86_64-linux"  = "sha256-hhG6k1r4hvBabzh0ChUWAybBXl1dB63vlmEwtEk2B+0=";
-    "aarch64-linux"  = "sha256-0TlE2hKlPsx0v2pyC9HQTEVVwDjf5CI2U1anvkdpH98=";
-    "aarch64-darwin" = "sha256-b1o0Z+2crsR5W/eM1HZQfZ+HDH1XuGyUX8szgSZ3L/w=";
-    "x86_64-darwin"  = "sha256-+2c5sIv1RVDtqnyCTNWy3KRbagav70CEQwh6YxBfb40=";
+    "x86_64-linux"  = "sha256-ecB3H6i5LDOq5B4VoODTB+qZ0OLwAxfHHGxTI3p44lo=";
+    "aarch64-linux"  = "sha256-cLrkGzkIsKEg4eWMXIrzDnSvrjuNEbDT/djnh937SyI=";
+    "aarch64-darwin" = "sha256-VGfj9l26Umuf6pjwzOBO+vwMY+Fpcz7Ce4dqOtMtoZA=";
+    "x86_64-darwin"  = "sha256-qYumpIDyL9qbNDYmuQak4mqlNhi/hdK8WSjs8rpF8O0=";
   };
   bunPinned = bun.overrideAttrs (old: {
     version = bunVersion;
