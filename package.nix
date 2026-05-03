@@ -68,6 +68,15 @@ let
     nativeBuildInputs = [ bunPinned ];
     dontConfigure = true;
 
+    # bun ignores NIX_SSL_CERT_FILE; under MITM TLS proxies it needs
+    # NODE_EXTRA_CA_CERTS to avoid SELF_SIGNED_CERT_IN_CHAIN. Mirrors
+    # upstream PR anomalyco/opencode#18405 (still unmerged).
+    impureEnvVars = lib.fetchers.proxyImpureEnvVars ++ [
+      "GIT_PROXY_COMMAND"
+      "SOCKS_SERVER"
+      "NODE_EXTRA_CA_CERTS"
+    ];
+
     buildPhase = ''
       runHook preBuild
       export HOME=$(mktemp -d)
@@ -126,6 +135,17 @@ stdenvNoCC.mkDerivation {
   buildPhase = ''
     runHook preBuild
     export HOME=$(mktemp -d)
+
+    # Workaround for upstream issue anomalyco/opencode#7415:
+    # ensure opentui-spinner registers the <spinner/> component with the
+    # @opentui/solid reconciler before any TUI render. The side-effect
+    # import in prompt/index.tsx may be evaluated too late depending on
+    # module ordering. Mirrors the (unmerged) fix in PR #11269.
+    appTsx=packages/opencode/src/cli/cmd/tui/app.tsx
+    if [ -f "$appTsx" ] && ! grep -q 'opentui-spinner/solid' "$appTsx"; then
+      sed -i '1i import "opentui-spinner/solid";' "$appTsx"
+    fi
+
     pushd packages/opencode
     bun --bun ./script/build.ts --single --skip-install --skip-embed-web-ui
     bun --bun ./script/schema.ts schema.json
