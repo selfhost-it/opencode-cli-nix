@@ -81,15 +81,18 @@ let
       runHook preBuild
       export HOME=$(mktemp -d)
       export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
+      # Use bun's default `isolated` linker (matches upstream nix/node_modules.nix).
+      # `--linker=hoisted` was producing duplicate copies of @opentui/solid that
+      # broke the opentui-spinner side-effect registration (issue #7415).
       bun install \
         --cpu="${bunCpu}" \
         --os="${bunOs}" \
-        --linker=hoisted \
-        --filter './' \
+        --filter '!./' \
         --filter './packages/opencode' \
         --filter './packages/desktop' \
         --filter './packages/app' \
         --filter './packages/shared' \
+        --frozen-lockfile \
         --ignore-scripts \
         --no-progress
       runHook postBuild
@@ -98,7 +101,10 @@ let
     installPhase = ''
       runHook preInstall
       mkdir -p $out
-      find . -type d -name node_modules -exec cp -R --parents {} $out \;
+      # `-a` preserves symlinks; the isolated linker stores actual content
+      # under node_modules/.bun/ with symlinks elsewhere — copying with `-R`
+      # alone would dereference them and break the layout.
+      find . -type d -name node_modules -exec cp -aR --parents {} $out \;
       runHook postInstall
     '';
 
@@ -135,17 +141,6 @@ stdenvNoCC.mkDerivation {
   buildPhase = ''
     runHook preBuild
     export HOME=$(mktemp -d)
-
-    # Workaround for upstream issue anomalyco/opencode#7415:
-    # ensure opentui-spinner registers the <spinner/> component with the
-    # @opentui/solid reconciler before any TUI render. The side-effect
-    # import in prompt/index.tsx may be evaluated too late depending on
-    # module ordering. Mirrors the (unmerged) fix in PR #11269.
-    appTsx=packages/opencode/src/cli/cmd/tui/app.tsx
-    if [ -f "$appTsx" ] && ! grep -q 'opentui-spinner/solid' "$appTsx"; then
-      sed -i '1i import "opentui-spinner/solid";' "$appTsx"
-    fi
-
     pushd packages/opencode
     bun --bun ./script/build.ts --single --skip-install --skip-embed-web-ui
     bun --bun ./script/schema.ts schema.json
