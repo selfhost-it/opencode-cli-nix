@@ -21,13 +21,13 @@
 }:
 
 let
-  version = "1.15.4";
+  version = "1.15.5";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
     repo = "opencode";
     rev = "v${version}";
-    hash = "sha256-aCoajfdfNsEq5YGFwX+YKkC6Bo19f34BbKt3wJ1FNmA=";
+    hash = "sha256-HZiqia9QzkJMfRQ6bzFBsiGXNHv1WFLUdwhekE+rXM8=";
   };
 
   # Snapshot of the models.dev API — vendored in the repo so the build is
@@ -42,6 +42,11 @@ let
   # Pin bun to a version compatible with OpenCode, regardless of
   # what the user's nixpkgs provides (avoids "bun too old" errors
   # when the flake is consumed with `inputs.nixpkgs.follows`).
+  # Pinned to 1.3.13: bun 1.3.14's `--compile` emits binaries with sections
+  # outside any PT_LOAD segment, which glibc 2.42's dynamic loader rejects
+  # (SIGSEGV in dl_main before main runs). Opencode v1.15.5 bumped its
+  # required bun to ^1.3.14 — we relax that check in `preBuild` so 1.3.13
+  # is accepted. Lift the pin once bun ships a fix.
   bunVersion = "1.3.13";
   bunHashes = {
     "x86_64-linux"  = "sha256-ecB3H6i5LDOq5B4VoODTB+qZ0OLwAxfHHGxTI3p44lo=";
@@ -141,6 +146,12 @@ stdenvNoCC.mkDerivation {
   buildPhase = ''
     runHook preBuild
     export HOME=$(mktemp -d)
+    # Relax the bun-version semver check in @opencode-ai/script so the pinned
+    # bun 1.3.13 (see comment near bunVersion) is accepted even though
+    # upstream wants ^1.3.14. Drop this patch once the bun pin is lifted.
+    substituteInPlace packages/script/src/index.ts \
+      --replace-fail "const expectedBunVersionRange = \`^\''${expectedBunVersion}\`" \
+                     "const expectedBunVersionRange = \">=1.3.13\""
     pushd packages/opencode
     bun --bun ./script/build.ts --single --skip-install --skip-embed-web-ui
     bun --bun ./script/schema.ts schema.json
