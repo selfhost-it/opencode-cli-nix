@@ -21,7 +21,7 @@
 }:
 
 let
-  version = "1.15.13";
+  version = "1.15.14";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
