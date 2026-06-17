@@ -21,13 +21,13 @@
 }:
 
 let
-  version = "1.17.7";
+  version = "1.17.8";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
     repo = "opencode";
     rev = "v${version}";
-    hash = "sha256-rTeJuwqc11r6Xiksfg5IoTezK2ZtG3GlenQCxTW04P4=";
+    hash = "sha256-iReCFIJeJIOIs95v0ReVR/X1PnT5dSnR9O0TniyvPR8=";
   };
 
   # Snapshot of the models.dev API — vendored in the repo so the build is
