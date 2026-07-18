@@ -89,6 +89,15 @@ let
       # Use bun's default `isolated` linker (matches upstream nix/node_modules.nix).
       # `--linker=hoisted` was producing duplicate copies of @opentui/solid that
       # broke the opentui-spinner side-effect registration (issue #7415).
+      #
+      # No `--frozen-lockfile`: upstream's committed bun.lock pins package
+      # versions that npm later unpublished, so a frozen install fails
+      # ("lockfile had changes, but lockfile is frozen") on any rebuild after
+      # this FOD's output is garbage-collected (the standalone opencode binary
+      # doesn't retain node_modules, so GC always reaps it). bun still resolves
+      # every dep cleanly — only the frozen guard rejected the delta — and the
+      # `outputHash` below pins the result. Re-run update.sh to re-pin the hash
+      # if a future npm drift changes the resolved set.
       bun install \
         --cpu="${bunCpu}" \
         --os="${bunOs}" \
@@ -97,7 +106,6 @@ let
         --filter './packages/desktop' \
         --filter './packages/app' \
         --filter './packages/shared' \
-        --frozen-lockfile \
         --ignore-scripts \
         --no-progress
       runHook postBuild
